@@ -341,20 +341,24 @@
             if (genDiv) {
               clearInterval(parseInt(genDiv.dataset.itv || 0));
               
-              // 改进后的视频展示
+              // 使用后端代理下载（更稳定）
+              const proxyDownloadUrl = `${BACKEND_URL}/api/video/proxy/${taskId}?api_key=${encodeURIComponent(apiKey)}`;
+
               genDiv.innerHTML = `
                 <div class="bg-aiBubble p-3 rounded-2xl max-w-[82%]">
-                  <div class="mb-2 text-sm text-gray-400">视频已生成</div>
-                  <video controls class="w-full max-h-[380px] rounded bg-black">
-                    <source src="${d.video_url}">
-                  </video>
-                  <div class="flex gap-2 mt-3">
+                  <div class="mb-2 text-sm text-emerald-400">✓ 视频已生成</div>
+                  
+                  <div class="mb-3 text-xs text-gray-400">
+                    推荐点击下方按钮下载（更稳定）
+                  </div>
+
+                  <div class="flex gap-2">
                     <button onclick="window.open('${d.video_url}', '_blank')" 
                             class="flex-1 text-sm px-4 py-2 bg-white/10 hover:bg-white/20 rounded transition-colors">
-                      在新标签页播放
+                      在新标签页尝试播放
                     </button>
-                    <button onclick="window.downloadVideo('${d.video_url}')" 
-                            class="flex-1 text-sm px-4 py-2 bg-primary text-white rounded transition-colors">
+                    <button onclick="window.downloadVideo('${proxyDownloadUrl}')" 
+                            class="flex-1 text-sm px-4 py-2 bg-primary text-white rounded transition-colors font-medium">
                       下载视频
                     </button>
                   </div>
