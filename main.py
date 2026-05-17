@@ -6,7 +6,6 @@ import sqlite3
 from datetime import datetime
 from typing import Optional
 import traceback
-from io import BytesIO
 
 app = FastAPI(title="清影 Veo 后端")
 
@@ -146,38 +145,65 @@ async def get_video_status(task_id: str, api_key: str = Query(...)):
     return d
 
 
-# ==================== 新增：视频代理下载接口 ====================
+# ==================== 视频代理下载（更稳定版本） ====================
 @app.get("/api/video/proxy/{task_id}")
 async def proxy_video_download(task_id: str, api_key: str = Query(...)):
-    """通过后端代理下载视频，解决直接访问不稳定的问题"""
+    """通过后端代理下载视频"""
     try:
-        # 先查询视频状态获取真实链接
+        # 查询视频真实链接
         headers = {"Authorization": f"Bearer {api_key}"}
         r = requests.get(f"https://ai.kegeai.top/v1/video/query?id={task_id}", headers=headers, timeout=30)
         data = r.json()
 
         video_url = data.get("video_url")
         if not video_url:
-            raise HTTPException(404, "视频尚未生成完成或不存在")
+            raise HTTPException(404, "视频链接不存在或尚未生成")
 
-        # 代理下载视频
-        def stream_video():
-            with requests.get(video_url, stream=True, timeout=300) as video_resp:
-                if video_resp.status_code != 200:
-                    yield b''
+        # 使用 requests 流式代理
+        def generate():
+            with requests.get(video_url, stream=True, timeout=300) as resp:
+                if resp.status_code != 200:
                     return
-                for chunk in video_resp.iter_content(chunk_size=8192):
-                    if chunk:
-                        yield chunk
+                for chunk in resp.iter_content(chunk_size=8192):
+                    yield chunk
 
         return StreamingResponse(
-            stream_video(),
+            generate(),
             media_type="video/mp4",
             headers={
-                "Content-Disposition": f'attachment; filename="qingying_video_{task_id}.mp4"'
+                "Content-Disposition": f'attachment; filename="video_{task_id}.mp4"'
             }
         )
 
     except Exception as e:
         traceback.print_exc()
-        raise HTTPException(500, f"代理下载失败
+        raise HTTPException(500, f"视频代理失败: {str(e)}")
+
+
+@app.get("/api/tasks")
+def get_tasks():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("SELECT * FROM tasks ORDER BY created_at DESC")
+    rows = c.fetchall()
+    conn.close()
+    return [{"id":r[0],"type":r[1],"prompt":r[2],"task_id":r[3],"image":r[4],"video":r[5],"status":r[6],"time":r[7]} for r in rows]
+
+
+@app.get("/admin", response_class=HTMLResponse)
+def admin():
+    return HTMLResponse("<h1>清影Veo 任务记录</h1><p>访问 /api/tasks 查看记录</p>")
+
+
+@app.get("/", response_class=HTMLResponse)
+def home():
+    try:
+        with open("static/index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except:
+        return HTMLResponse("<h1>请确认 static/index.html 存在</h1>", status_code=404)
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
