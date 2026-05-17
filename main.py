@@ -39,22 +39,41 @@ class VideoRequest(BaseModel):
     enable_upsample: bool = False
     reference_image: Optional[str] = None
 
+def get_ratio_desc(aspect_ratio: str) -> str:
+    if aspect_ratio == "9:16":
+        return "竖屏 9:16"
+    elif aspect_ratio == "16:9":
+        return "横屏 16:9"
+    elif aspect_ratio == "1:1":
+        return "正方形 1:1"
+    else:
+        return "横屏 16:9"
+
 @app.post("/api/generate-image")
 async def generate_image(req: ImageRequest):
     print("[后端] 收到生图请求")
     try:
-        enhanced_prompt = f"{req.prompt} 。【请严格生成横屏 16:9 比例】"
+        ratio_desc = get_ratio_desc(req.aspect_ratio)
+        enhanced_prompt = f"{req.prompt} 。【请严格生成 {ratio_desc} 比例】"
+
         payload = {
             "contents": [{"parts": [{"text": enhanced_prompt}]}],
             "generationConfig": {"responseModalities": ["IMAGE"]},
             "imageGenerationConfig": {"aspectRatio": req.aspect_ratio}
         }
-        headers = {"Content-Type": "application/json", "x-goog-api-key": req.api_key}
+
+        headers = {
+            "Content-Type": "application/json",
+            "x-goog-api-key": req.api_key
+        }
 
         resp = requests.post(
             "https://ai.kegeai.top/v1beta/models/gemini-3.1-flash-image-preview:generateContent",
-            headers=headers, json=payload, timeout=120
+            headers=headers,
+            json=payload,
+            timeout=120
         )
+
         print(f"[后端] 图片上游状态码: {resp.status_code}")
 
         if resp.status_code != 200:
@@ -63,6 +82,7 @@ async def generate_image(req: ImageRequest):
 
         data = resp.json()
         image_url = None
+
         for candidate in data.get("candidates", []):
             for part in candidate.get("content", {}).get("parts", []):
                 if part.get("inlineData", {}).get("data"):
@@ -78,6 +98,7 @@ async def generate_image(req: ImageRequest):
                   ("image", req.prompt, image_url, "completed", datetime.now().isoformat()))
         conn.commit()
         conn.close()
+
         return {"image_url": image_url}
 
     except Exception as e:
