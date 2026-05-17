@@ -345,16 +345,21 @@
                 <div class="bg-aiBubble p-3 rounded-2xl max-w-[82%]">
                   <div class="mb-2 text-sm text-emerald-400">✓ 视频已生成</div>
                   
-                  <!-- 视频播放控件 -->
                   <video controls class="w-full max-h-[380px] rounded bg-black mb-3" style="max-width:100%;">
                     <source src="${d.video_url}">
                   </video>
 
                   <div class="flex gap-2">
-                    <button onclick="window.open('${d.video_url}', '_blank')" 
-                            class="flex-1 text-sm px-4 py-2 bg-white/10 hover:bg-white/20 rounded transition-colors">
-                      新标签页播放
+                    <!-- 复制任务ID按钮 -->
+                    <button onclick="navigator.clipboard.writeText('${taskId}').then(() => {
+                      const btn = event.currentTarget;
+                      const originalText = btn.innerText;
+                      btn.innerText = '已复制';
+                      setTimeout(() => { btn.innerText = originalText; }, 1500);
+                    })" class="flex-1 text-sm px-4 py-2 bg-white/10 hover:bg-white/20 rounded transition-colors">
+                      复制任务ID
                     </button>
+
                     <button onclick="window.downloadVideo('${d.video_url}')" 
                             class="flex-1 text-sm px-4 py-2 bg-primary text-white rounded transition-colors font-medium">
                       下载视频
