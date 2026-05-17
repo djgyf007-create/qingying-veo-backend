@@ -133,7 +133,7 @@
   </div>
 
   <script>
-    const BACKEND_URL = "";
+    const BACKEND_URL = "https://qingying-veo-backend.onrender.com";
 
     let uploadedImages = [];
     let generatedImages = new Map();
@@ -247,7 +247,7 @@
 
     async function generateImage(prompt, apiKey, size, aspectRatio, loadingMsg) {
       try {
-        const res = await fetch("/api/generate-image", {
+        const res = await fetch(`${BACKEND_URL}/api/generate-image`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt, api_key: apiKey, size, aspect_ratio: aspectRatio })
@@ -257,14 +257,14 @@
         loadingMsg.remove();
 
         if (!res.ok) {
-          addAiMessage("生成失败：" + (data.detail || "后端返回错误，请查看黑色窗口日志"));
+          addAiMessage("生成失败：" + (data.detail || "后端返回错误"));
           return;
         }
 
         if (data.image_url) {
           addAiImageMessage(data.image_url, prompt);
         } else {
-          addAiMessage("生成失败：未返回图片数据");
+          addAiMessage("生成失败：未返回图片");
         }
       } catch (err) {
         loadingMsg.remove();
@@ -279,7 +279,7 @@
         return;
       }
       try {
-        const res = await fetch("/api/generate-video", {
+        const res = await fetch(`${BACKEND_URL}/api/generate-video`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -333,20 +333,30 @@
     async function pollVideoTaskStatus(taskId, apiKey, genDiv) {
       const itv = setInterval(async () => {
         try {
-          const r = await fetch(`/api/video/status/${taskId}?api_key=${encodeURIComponent(apiKey)}`);
+          const r = await fetch(`${BACKEND_URL}/api/video/status/${taskId}?api_key=${encodeURIComponent(apiKey)}`);
           const d = await r.json();
 
           if (d.video_url) {
             clearInterval(itv);
             if (genDiv) {
               clearInterval(parseInt(genDiv.dataset.itv || 0));
+              
+              // 改进后的视频展示
               genDiv.innerHTML = `
                 <div class="bg-aiBubble p-3 rounded-2xl max-w-[82%]">
-                  <video controls class="w-full max-h-[380px] rounded object-contain bg-black">
+                  <div class="mb-2 text-sm text-gray-400">视频已生成</div>
+                  <video controls class="w-full max-h-[380px] rounded bg-black">
                     <source src="${d.video_url}">
                   </video>
-                  <div class="flex justify-end mt-2">
-                    <button onclick="window.downloadVideo('${d.video_url}')" class="text-sm px-3 py-1 bg-white/10 hover:bg-white/20 rounded">下载视频</button>
+                  <div class="flex gap-2 mt-3">
+                    <button onclick="window.open('${d.video_url}', '_blank')" 
+                            class="flex-1 text-sm px-4 py-2 bg-white/10 hover:bg-white/20 rounded transition-colors">
+                      在新标签页播放
+                    </button>
+                    <button onclick="window.downloadVideo('${d.video_url}')" 
+                            class="flex-1 text-sm px-4 py-2 bg-primary text-white rounded transition-colors">
+                      下载视频
+                    </button>
                   </div>
                 </div>`;
             }
