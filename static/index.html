@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>清影veo AI生图生视频 v18</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            primary: '#6366f1',
+            secondary: '#22c55e',
+            accent: '#a855f7',
+            dark: '#0a0a0a',
+            panel: '#111113',
+            userBubble: '#6366f1',
+            aiBubble: '#1f1f23',
+          },
+          fontFamily: {
+            sans: ['-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+          },
+        },
+      }
+    }
+  </script>
+  <style type="text/tailwindcss">
+    @layer utilities {
+      .content-auto { content-visibility: auto; }
+      .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+      .scrollbar-hide::-webkit-scrollbar { display: none; }
+      .msg-slide-right { animation: slideRight 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
+      .msg-slide-left { animation: slideLeft 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards; }
+      .bg-aiBubble { background-color: #1f1f23; border: 1px solid rgba(255,255,255,0.06); }
+      @keyframes slideRight { from { opacity: 0; transform: translateX(30px); } to { opacity: 1; transform: translateX(0); } }
+      @keyframes slideLeft { from { opacity: 0; transform: translateX(-30px); } to { opacity: 1; transform: translateX(0); } }
+      .loading-dot { width: 8px; height: 8px; border-radius: 50%; background: #8E8E93; animation: bounce 1.4s infinite ease-in-out both; }
+      .loading-dot:nth-child(1) { animation-delay: -0.32s; }
+      .loading-dot:nth-child(2) { animation-delay: -0.16s; }
+      .loading-dot:nth-child(3) { animation-delay: 0s; }
+      @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+      .preview-fade { animation: fadeIn 0.2s ease-out forwards; }
+      @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+      .preview-zoom { animation: zoomIn 0.3s cubic-bezier(0.25, 1, 0.5, 1) forwards; }
+      @keyframes zoomIn { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+      .breathing { animation: breathe 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+      @keyframes breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
+    }
+  </style>
+</head>
+<body class="bg-[#0a0a0a] min-h-screen text-gray-200">
+  <div class="max-w-4xl mx-auto bg-[#111113] h-screen flex flex-col shadow-2xl border border-white/10">
+    <header class="bg-[#0a0a0a] border-b border-white/10 px-5 py-4 flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
+          <i class="fa fa-magic text-white text-xl"></i>
+        </div>
+        <div>
+          <h1 class="text-xl font-semibold tracking-tight">清影 Veo</h1>
+          <p class="text-[10px] text-gray-500 -mt-0.5">AI 生图 · 生视频 v18</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="hidden md:flex items-center bg-white/5 text-xs px-3 py-1 rounded-full border border-white/10">
+          <i class="fa fa-circle text-emerald-500 mr-1.5 text-[8px]"></i>
+          <span class="text-gray-400">在线</span>
+        </div>
+        <input type="text" id="apiKeyInput" placeholder="API Key" class="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/50 w-44 placeholder:text-gray-500">
+      </div>
+    </header>
+
+    <div id="chatContainer" class="flex-1 p-4 overflow-y-auto scrollbar-hide bg-[#0a0a0a] space-y-4"></div>
+
+    <div class="border-t border-white/10 bg-[#0a0a0a] px-4 py-3">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center bg-white/5 rounded-2xl p-1 border border-white/10">
+          <button onclick="switchGenerateType('image')" id="btn-type-image"
+                  class="px-5 py-1.5 text-sm rounded-[14px] font-medium transition-all flex items-center gap-2 bg-primary text-white shadow">
+            <i class="fa fa-image"></i> <span>生图</span>
+          </button>
+          <button onclick="switchGenerateType('video')" id="btn-type-video"
+                  class="px-5 py-1.5 text-sm rounded-[14px] font-medium transition-all flex items-center gap-2 text-gray-300 hover:text-white">
+            <i class="fa fa-video-camera"></i> <span>生视频</span>
+          </button>
+        </div>
+        <button onclick="toggleAdvancedSettings()" class="flex items-center gap-2 text-xs px-3 py-1.5 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 transition-all text-gray-400 hover:text-gray-200">
+          <i class="fa fa-cog"></i> <span>参数设置</span>
+          <i class="fa fa-chevron-down text-[10px] transition-transform" id="settings-chevron"></i>
+        </button>
+      </div>
+
+      <div id="advanced-settings" class="hidden">
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-white/10">
+          <div><label class="block text-[10px] font-medium text-gray-400 mb-1">分辨率</label>
+            <select id="size" class="w-full bg-white/5 border border-white/10 text-sm rounded-xl px-3 py-2"><option value="1K">1K</option><option value="2K" selected>2K</option></select></div>
+          <div><label class="block text-[10px] font-medium text-gray-400 mb-1">画面比例</label>
+            <select id="aspectRatio" class="w-full bg-white/5 border border-white/10 text-sm rounded-xl px-3 py-2"><option value="9:16">9:16 竖屏</option><option value="16:9">16:9 横屏</option><option value="1:1">1:1 正方形</option></select></div>
+          <div><label class="block text-[10px] font-medium text-gray-400 mb-1">自动翻译提示词</label>
+            <select id="enhance_prompt" class="w-full bg-white/5 border border-white/10 text-sm rounded-xl px-3 py-2"><option value="true">开启</option><option value="false">关闭</option></select></div>
+          <div><label class="block text-[10px] font-medium text-gray-400 mb-1">开启超分</label>
+            <select id="enable_upsample" class="w-full bg-white/5 border border-white/10 text-sm rounded-xl px-3 py-2"><option value="false">关闭</option><option value="true">开启</option></select></div>
+        </div>
+      </div>
+
+      <select id="generateType" class="hidden"><option value="image">生图</option><option value="video">生视频</option></select>
+
+      <div class="mt-3">
+        <div class="flex items-center gap-2 text-xs text-gray-400 mb-1.5"><i class="fa fa-image"></i><span>参考图（生成视频时需要）</span></div>
+        <div class="flex items-center gap-3">
+          <input type="file" id="imageUpload" accept="image/*" multiple class="hidden">
+          <button onclick="document.getElementById('imageUpload').click()" class="px-4 py-2 text-sm bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl flex items-center gap-2"><i class="fa fa-upload"></i> <span>上传图片</span></button>
+          <span id="uploadFileName" class="text-xs text-gray-500"></span>
+        </div>
+        <div id="preview" class="flex gap-2 flex-wrap mt-2"></div>
+      </div>
+    </div>
+
+    <div class="border-t border-white/10 p-4 bg-[#0a0a0a]">
+      <div class="flex gap-2">
+        <input type="text" id="promptInput" placeholder="请输入描述词..." class="flex-1 bg-white/5 border border-white/10 px-5 py-3 rounded-3xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/60 placeholder:text-gray-500">
+        <button id="sendBtn" class="bg-primary hover:bg-primary/90 active:scale-95 transition-all px-6 rounded-3xl flex items-center gap-2 text-sm font-medium shadow-lg shadow-primary/20">
+          <i class="fa fa-paper-plane"></i> <span class="hidden sm:inline">发送</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="imagePreview" class="fixed inset-0 bg-black/90 z-50 hidden flex items-center justify-center p-4 preview-fade">
+    <img id="previewImg" class="max-w-full max-h-full object-contain rounded-lg shadow-2xl preview-zoom" src="">
+    <button onclick="closePreview()" class="absolute top-6 right-6 text-white text-3xl opacity-70 hover:opacity-100 transition-opacity">&times;</button>
+  </div>
+
+  <script>
+    const BACKEND_URL = "";
+
+    let uploadedImages = [];
+    let generatedImages = new Map();
+
+    const chatContainer = document.getElementById('chatContainer');
+    const promptInput = document.getElementById('promptInput');
+    const sendBtn = document.getElementById('sendBtn');
+    const imageUpload = document.getElementById('imageUpload');
+    const uploadFileName = document.getElementById('uploadFileName');
+
+    imageUpload.addEventListener('change', e => {
+      if (!e.target.files?.length) return;
+      for (let f of e.target.files) {
+        if (f.size > 10*1024*1024) { alert('文件超过10MB'); continue; }
+        const reader = new FileReader();
+        reader.onload = ev => {
+          uploadedImages.push({ id: Math.random().toString(36).slice(2), data: ev.target.result, name: f.name });
+          renderImagePreview();
+          uploadFileName.textContent = `${uploadedImages.length} 张图片已上传`;
+        };
+        reader.readAsDataURL(f);
+      }
+      e.target.value = '';
+    });
+
+    function renderImagePreview() {
+      const p = document.getElementById('preview');
+      p.innerHTML = '';
+      uploadedImages.forEach(img => {
+        const div = document.createElement('div');
+        div.className = "relative w-20 h-20 rounded overflow-hidden border";
+        div.innerHTML = `<img src="${img.data}" class="w-full h-full object-cover"><div class="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white flex items-center justify-center text-xs delete" data-id="${img.id}">×</div>`;
+        p.appendChild(div);
+      });
+      document.querySelectorAll('.delete').forEach(d => d.onclick = () => {
+        uploadedImages = uploadedImages.filter(i => i.id !== d.dataset.id);
+        renderImagePreview();
+        uploadFileName.textContent = uploadedImages.length ? `${uploadedImages.length} 张图片已上传` : '';
+      });
+    }
+
+    sendBtn.addEventListener('click', sendMessage);
+    promptInput.addEventListener('keypress', e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); } });
+
+    function switchGenerateType(type) {
+      document.getElementById('generateType').value = type;
+      const btnImage = document.getElementById('btn-type-image');
+      const btnVideo = document.getElementById('btn-type-video');
+
+      if (type === 'image') {
+        uploadedImages = [];
+        renderImagePreview();
+        uploadFileName.textContent = '';
+        btnImage.classList.add('bg-primary','text-white','shadow');
+        btnImage.classList.remove('text-gray-300','hover:text-white');
+        btnVideo.classList.remove('bg-primary','text-white','shadow');
+        btnVideo.classList.add('text-gray-300','hover:text-white');
+      } else {
+        btnVideo.classList.add('bg-primary','text-white','shadow');
+        btnVideo.classList.remove('text-gray-300','hover:text-white');
+        btnImage.classList.remove('bg-primary','text-white','shadow');
+        btnImage.classList.add('text-gray-300','hover:text-white');
+      }
+    }
+
+    function toggleAdvancedSettings() {
+      const panel = document.getElementById('advanced-settings');
+      const chevron = document.getElementById('settings-chevron');
+      panel.classList.toggle('hidden');
+      chevron.style.transform = panel.classList.contains('hidden') ? 'rotate(0deg)' : 'rotate(180deg)';
+    }
+
+    async function sendMessage() {
+      const prompt = promptInput.value.trim();
+      const apiKey = document.getElementById('apiKeyInput').value.trim();
+      const generateType = document.getElementById('generateType').value;
+
+      if (!prompt) { alert('请输入描述词！'); return; }
+      if (!apiKey) { alert('请先输入API Key！'); return; }
+      if (generateType === 'video' && uploadedImages.length === 0) { alert('生成视频需要上传参考图片'); return; }
+
+      const originalText = sendBtn.innerHTML;
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = '<i class="fa fa-spinner fa-spin"></i> 发送中';
+      setTimeout(() => {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = originalText;
+      }, 900);
+
+      promptInput.value = '';
+      addUserMessage(prompt);
+      const loadingMsg = addLoadingMessage();
+
+      try {
+        const size = document.getElementById('size').value;
+        const aspectRatio = document.getElementById('aspectRatio').value;
+        const enhance = document.getElementById('enhance_prompt').value === 'true';
+        const upsample = document.getElementById('enable_upsample').value === 'true';
+
+        if (generateType === 'image') {
+          await generateImage(prompt, apiKey, size, aspectRatio, loadingMsg);
+        } else {
+          const refImageData = uploadedImages[0]?.data || null;
+          await generateVideo(prompt, apiKey, size, aspectRatio, enhance, upsample, loadingMsg, refImageData);
+        }
+      } catch (err) {
+        loadingMsg.remove();
+        addAiMessage('生成失败：' + (err.message || '未知错误'));
+      }
+    }
+
+    async function generateImage(prompt, apiKey, size, aspectRatio, loadingMsg) {
+      try {
+        const res = await fetch("/api/generate-image", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt, api_key: apiKey, size, aspect_ratio: aspectRatio })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        loadingMsg.remove();
+
+        if (!res.ok) {
+          addAiMessage("生成失败：" + (data.detail || "后端返回错误，请查看黑色窗口日志"));
+          return;
+        }
+
+        if (data.image_url) {
+          addAiImageMessage(data.image_url, prompt);
+        } else {
+          addAiMessage("生成失败：未返回图片数据");
+        }
+      } catch (err) {
+        loadingMsg.remove();
+        addAiMessage("生成失败：" + err.message);
+      }
+    }
+
+    async function generateVideo(prompt, apiKey, size, aspectRatio, enhance, upsample, loadingMsg, refImageData) {
+      if (!refImageData) {
+        loadingMsg.remove();
+        addAiMessage("生成视频需要上传参考图片");
+        return;
+      }
+      try {
+        const res = await fetch("/api/generate-video", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt, api_key: apiKey, size, aspect_ratio: aspectRatio,
+            enhance_prompt: enhance, enable_upsample: upsample, reference_image: refImageData
+          })
+        });
+
+        const data = await res.json().catch(() => ({}));
+        loadingMsg.remove();
+
+        if (!res.ok) {
+          addAiMessage("生成失败：" + (data.detail || "创建视频任务失败"));
+          return;
+        }
+
+        if (data.task_id) {
+          const genDiv = addVideoGeneratingMessage(refImageData, data.task_id);
+          pollVideoTaskStatus(data.task_id, apiKey, genDiv);
+        }
+      } catch (err) {
+        loadingMsg.remove();
+        addAiMessage("生成失败：" + err.message);
+      }
+    }
+
+    function addVideoGeneratingMessage(ref, taskId) {
+      const div = document.createElement('div');
+      div.className = 'flex justify-start msg-slide-left';
+      const timerId = 't' + Date.now();
+      div.innerHTML = `
+        <div class="bg-aiBubble rounded-2xl p-3 max-w-[82%]">
+          <div class="relative rounded-xl overflow-hidden border border-white/10">
+            <img src="${ref}" class="w-full max-h-[210px] object-contain" style="filter:blur(8px);opacity:0.6">
+            <div class="absolute inset-0 flex items-center justify-center breathing">
+              <div class="bg-black/70 px-5 py-2 rounded-2xl text-center">
+                <div><i class="fa fa-spinner fa-spin"></i> 正在生成</div>
+                <div class="text-xs mt-1">已等待 <span id="${timerId}">0</span> 秒</div>
+              </div>
+            </div>
+          </div>
+        </div>`;
+      chatContainer.appendChild(div);
+      let s = 0;
+      const span = div.querySelector('#' + timerId);
+      const itv = setInterval(() => { s++; if(span) span.textContent = s; }, 1000);
+      div.dataset.itv = itv;
+      return div;
+    }
+
+    async function pollVideoTaskStatus(taskId, apiKey, genDiv) {
+      const itv = setInterval(async () => {
+        try {
+          const r = await fetch(`/api/video/status/${taskId}?api_key=${encodeURIComponent(apiKey)}`);
+          const d = await r.json();
+
+          if (d.video_url) {
+            clearInterval(itv);
+            if (genDiv) {
+              clearInterval(parseInt(genDiv.dataset.itv || 0));
+              genDiv.innerHTML = `
+                <div class="bg-aiBubble p-3 rounded-2xl max-w-[82%]">
+                  <video controls class="w-full max-h-[380px] rounded object-contain bg-black">
+                    <source src="${d.video_url}">
+                  </video>
+                  <div class="flex justify-end mt-2">
+                    <button onclick="window.downloadVideo('${d.video_url}')" class="text-sm px-3 py-1 bg-white/10 hover:bg-white/20 rounded">下载视频</button>
+                  </div>
+                </div>`;
+            }
+          } else if (d.status === "failed") {
+            clearInterval(itv);
+            if (genDiv) genDiv.innerHTML = `<div class="bg-aiBubble p-3 text-red-400">生成失败</div>`;
+          }
+        } catch(e){}
+      }, 3000);
+    }
+
+    function addUserMessage(t) {
+      const d = document.createElement('div');
+      d.className = 'flex justify-end msg-slide-right';
+      d.innerHTML = `<div class="bg-userBubble rounded-2xl px-4 py-3 max-w-[80%]">${t}</div>`;
+      chatContainer.appendChild(d);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function addAiMessage(t) {
+      const d = document.createElement('div');
+      d.className = 'flex justify-start msg-slide-left';
+      d.innerHTML = `<div class="bg-aiBubble rounded-2xl px-4 py-3 max-w-[80%]">${t}</div>`;
+      chatContainer.appendChild(d);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    function addLoadingMessage() {
+      const d = document.createElement('div');
+      d.className = 'flex justify-start msg-slide-left';
+      d.innerHTML = `<div class="bg-aiBubble px-4 py-3 rounded-2xl flex gap-1"><div class="loading-dot"></div><div class="loading-dot"></div><div class="loading-dot"></div></div>`;
+      chatContainer.appendChild(d);
+      chatContainer.scrollTop = chatContainer.scrollHeight;
+      return d;
+    }
+
+    function addAiImageMessage(url, prompt) {
+      const d = document.createElement('div');
+      d.className = 'flex justify-start msg-slide-left';
+      const gid = 'g' + Date.now();
+      generatedImages.set(gid, {url, prompt});
+      d.innerHTML = `
+        <div class="bg-aiBubble rounded-2xl p-3 max-w-[80%]">
+          <img src="${url}" onclick="openPreview('${url}')" class="rounded-xl cursor-pointer max-h-[280px]">
+          <div class="flex gap-2 mt-2 justify-end">
+            <button onclick="downloadImage('${url}')" class="text-sm px-3 py-1 bg-white/10 rounded">下载</button>
+            <button data-gid="${gid}" class="switch-to-video-btn text-sm px-3 py-1 bg-primary text-white rounded">生成视频</button>
+          </div>
+        </div>`;
+      chatContainer.appendChild(d);
+    }
+
+    window.switchToVideoMode = function(url) {
+      uploadedImages = [{id:'ref', data: url, name:'ref'}];
+      renderImagePreview();
+      uploadFileName.textContent = '1 张参考图';
+      document.getElementById('generateType').value = 'video';
+      switchGenerateType('video');
+    };
+
+    window.openPreview = u => {
+      document.getElementById('previewImg').src = u;
+      const modal = document.getElementById('imagePreview');
+      modal.classList.remove('hidden');
+    };
+
+    window.closePreview = () => {
+      const modal = document.getElementById('imagePreview');
+      modal.classList.add('hidden');
+      document.getElementById('previewImg').src = '';
+    };
+
+    function setupPreviewCloseOnBackground() {
+      const modal = document.getElementById('imagePreview');
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closePreview();
+      });
+    }
+
+    window.downloadImage = async function(u) {
+      try {
+        let blob;
+        const filename = `清影图片_${Date.now()}.png`;
+        if (u.startsWith('data:')) {
+          const res = await fetch(u);
+          blob = await res.blob();
+        } else {
+          const res = await fetch(u, { mode: 'cors' });
+          if (!res.ok) throw new Error('下载失败');
+          blob = await res.blob();
+        }
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 100);
+      } catch (err) {
+        const a = document.createElement('a');
+        a.href = u;
+        a.download = `清影图片_${Date.now()}.png`;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    };
+
+    window.downloadVideo = async function(url) {
+      try {
+        const res = await fetch(url, { mode: 'cors' });
+        if (!res.ok) throw new Error('下载失败');
+        const blob = await res.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = blobUrl;
+        a.download = `清影视频_${Date.now()}.mp4`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(blobUrl), 150);
+      } catch (err) {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `清影视频_${Date.now()}.mp4`;
+        a.target = '_blank';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      }
+    };
+
+    document.addEventListener('DOMContentLoaded', () => {
+      switchGenerateType('image');
+      setupPreviewCloseOnBackground();
+
+      chatContainer.addEventListener('click', e => {
+        const btn = e.target.closest('.switch-to-video-btn');
+        if (btn) {
+          const data = generatedImages.get(btn.dataset.gid);
+          if (data) window.switchToVideoMode(data.url);
+        }
+      });
+    });
+  </script>
+</body>
+</html>
